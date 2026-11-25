@@ -1,4 +1,4 @@
-const C = 'belnex-33';
+const C = 'belnex-34';
 
 self.addEventListener('install', e => {
   e.waitUntil(
@@ -8,7 +8,9 @@ self.addEventListener('install', e => {
         './index.html',
         './manifest.json',
         './icon.png'
-      ]))
+      ].map(url => new Request(url, {
+        cache: 'reload'
+      }))))
       .then(() => self.skipWaiting())
   );
 });
@@ -17,8 +19,9 @@ self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
       .then(keys => Promise.all(
-        keys.filter(k => k.startsWith('belnex-') && k !== C)
-          .map(k => caches.delete(k))
+        keys.filter(k =>
+          k.startsWith('belnex-') && k !== C
+        ).map(k => caches.delete(k))
       ))
       .then(() => self.clients.claim())
   );
