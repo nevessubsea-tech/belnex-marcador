@@ -1,1 +1,476 @@
-<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#101820"><meta name="apple-mobile-web-app-capable" content="yes"><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon.png"><title>BELNEX SOLUÇÕES</title><style>*{box-sizing:border-box}body{background:#101820;color:white;font:16px system-ui;text-align:center;margin:0;padding:18px}h1{letter-spacing:5px;margin:8px}small{color:#b3c2cc}input,button{font:inherit;border:0;border-radius:10px;padding:14px;margin:5px 0}input{width:100%;background:#202d37;color:white;text-transform:uppercase}button{background:#293944;color:white;font-weight:bold;touch-action:manipulation}button:disabled{opacity:.4}.row{display:flex;gap:8px}.row>*{flex:1}.active,#hit{background:#42d5bd;color:#101820}#hit{width:100%;height:115px;font-size:28px}.metric{background:#202d37;border-radius:10px;padding:12px;margin:8px 0}strong{display:block;font-size:36px}table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid #34434d}.wide{width:100%}.accent{color:#42d5bd}#result{font-size:76px;color:#42d5bd} [hidden]{display:none!important}</style><body><small id="clock"></small><h1>BELNEX</h1><div class="accent">S O L U Ç Õ E S</div><h3>MARCADOR DE CANTOS</h3><main id="main"><input id="bird" placeholder="NOME DA AVE" autocapitalize="characters"><input id="owner" placeholder="PROPRIETÁRIO" autocapitalize="characters"><small>SELECIONE A MODALIDADE</small><div class="row"><button data-mode="3">3 MIN</button><button data-mode="10">10 MIN</button><button data-mode="15">15 MIN</button></div><div class="row"><div class="metric"><small>TEMPO RESTANTE</small><strong id="time">--:--</strong></div><div class="metric"><small>TOTAL DE CANTOS</small><strong id="total" class="accent">0</strong></div></div><div class="row"><button id="start">INICIAR</button><button id="pause">PAUSAR</button></div><button id="hit">+1 CANTO</button><p>Média por minuto: <b id="avg">0,0</b></p><table><thead><tr><th>Minuto</th><th>Cantos</th><th>Acumulado</th></tr></thead><tbody id="rows"></tbody></table><button class="wide" id="finish">Encerrar e gerar relatório</button><button class="wide" id="reset">Nova marcação</button></main><section id="report" hidden><h2>RELATÓRIO DE CANTOS</h2><small id="date"></small><p>AVE</p><h2 id="rb"></h2><p>PROPRIETÁRIO</p><h2 id="ro"></h2><hr><p id="rm"></p><strong id="result"></strong><p>CANTOS</p><hr><p>MÉDIA POR MINUTO</p><strong id="ra"></strong><p id="status"></p><button class="wide" id="back">Nova marcação</button></section><script>const $=x=>document.getElementById(x);let mode=0,base=0,since=0,running=false,begun=false,done=false,events=[];const elapsed=()=>Math.min(mode*60000,base+(running?Math.max(0,Date.now()-since):0));const fmt=s=>String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0');const avg=()=>elapsed()?(events.length*60000/elapsed()).toFixed(1).replace('.',','):'0,0';const modes=[...document.querySelectorAll('[data-mode]')];function render(){let e=elapsed();$('clock').textContent=new Date().toLocaleString('pt-BR');$('time').textContent=mode?fmt(Math.ceil((mode*60000-e)/1000)):'--:--';$('total').textContent=events.length;$('avg').textContent=avg();modes.forEach(b=>{b.disabled=begun;b.classList.toggle('active',+b.dataset.mode===mode)});$('start').disabled=!mode||running||done;$('start').textContent=begun?'RETOMAR':'INICIAR';$('pause').disabled=!running;$('hit').disabled=!running||done||e>=mode*60000;$('finish').disabled=!begun||done;$('rows').innerHTML=Array.from({length:mode},(_,i)=>`<tr><td>${i+1}</td><td>${events.filter(t=>Math.floor(t/60000)===i).length}</td><td>${events.filter(t=>t<(i+1)*60000).length}</td></tr>`).join('');if(begun&&!done&&e>=mode*60000)report()}function stop(){base=elapsed();running=false}function report(){if(done)return;stop();done=true;$('main').hidden=true;$('report').hidden=false;$('date').textContent=new Date().toLocaleString('pt-BR');$('rb').textContent=$('bird').value.trim()||'NÃO INFORMADA';$('ro').textContent=$('owner').value.trim()||'NÃO INFORMADO';$('rm').textContent='MODALIDADE '+mode+' MINUTOS';$('result').textContent=events.length;$('ra').textContent=avg();$('status').textContent=(base<mode*60000?'RELATÓRIO PARCIAL':'MARCAÇÃO CONCLUÍDA')+' — '+fmt(Math.floor(base/1000))}function reset(){mode=base=0;running=begun=done=false;events=[];$('bird').value=$('owner').value='';$('main').hidden=false;$('report').hidden=true;render()}modes.forEach(b=>b.onclick=()=>{if(!begun){mode=+b.dataset.mode;render()}});['bird','owner'].forEach(k=>$(k).oninput=()=>$(k).value=$(k).value.toLocaleUpperCase('pt-BR'));$('start').onclick=()=>{if(mode&&!running&&!done){since=Date.now();running=begun=true;render()}};$('pause').onclick=()=>{stop();render()};$('hit').onclick=()=>{let e=elapsed();if(running&&e<mode*60000){events.push(e);render()}};$('finish').onclick=report;$('reset').onclick=()=>{if(!begun||confirm('Apagar a marcação atual?'))reset()};$('back').onclick=reset;setInterval(render,200);render();if('serviceWorker'in navigator)navigator.serviceWorker.register('./sw.js').catch(console.error);</script></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#101820">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<title>BELNEX SOLUÇÕES</title>
+<style>
+*{box-sizing:border-box}
+body{background:#101820;color:white;font:16px system-ui;text-align:center;margin:0;padding:18px}
+h1{letter-spacing:5px;margin:8px}
+small{color:#b3c2cc}
+input,button{font:inherit;border:0;border-radius:10px;padding:14px;margin:5px 0}
+input{width:100%;background:#202d37;color:white;text-transform:uppercase}
+button{background:#293944;color:white;font-weight:bold;touch-action:manipulation}
+button:disabled{opacity:.4}
+.row{display:flex;gap:8px}
+.row>*{flex:1}
+.active,#hit,#activate{background:#42d5bd;color:#101820}
+#hit{width:100%;height:115px;font-size:28px}
+.metric{background:#202d37;border-radius:10px;padding:12px;margin:8px 0}
+strong{display:block;font-size:36px}
+table{width:100%;border-collapse:collapse}
+td,th{padding:8px;border-bottom:1px solid #34434d}
+.wide{width:100%}
+.accent{color:#42d5bd}
+#result{font-size:76px;color:#42d5bd}
+[hidden]{display:none!important}
+#license{margin-top:35px}
+#message{min-height:45px;color:#42d5bd}
+#code{text-transform:lowercase}
+.version{font-size:11px;color:#82929e;margin-top:20px}
+</style>
+</head>
+<body>
+
+<small id="clock"></small>
+<h1>BELNEX</h1>
+<div class="accent">S O L U Ç Õ E S</div>
+<h3>MARCADOR DE CANTOS</h3>
+
+<section id="license" hidden>
+<h2>ATIVAÇÃO DO APLICATIVO</h2>
+<p>Insira seu código de licença para liberar o acesso.</p>
+<input id="code" placeholder="CÓDIGO DE ATIVAÇÃO"
+autocomplete="off" autocorrect="off"
+autocapitalize="none" spellcheck="false">
+<button id="activate" class="wide">ATIVAR LICENÇA</button>
+<p id="message"></p>
+<small>A primeira ativação necessita de internet.</small>
+</section>
+
+<main id="main" hidden>
+
+<input id="bird" placeholder="NOME DA AVE" autocapitalize="characters">
+<input id="owner" placeholder="PROPRIETÁRIO" autocapitalize="characters">
+
+<small>SELECIONE A MODALIDADE</small>
+
+<div class="row">
+<button data-mode="3">3 MIN</button>
+<button data-mode="10">10 MIN</button>
+<button data-mode="15">15 MIN</button>
+</div>
+
+<div class="row">
+<div class="metric">
+<small>TEMPO RESTANTE</small>
+<strong id="time">--:--</strong>
+</div>
+<div class="metric">
+<small>TOTAL DE CANTOS</small>
+<strong id="total" class="accent">0</strong>
+</div>
+</div>
+
+<div class="row">
+<button id="start">INICIAR</button>
+<button id="pause">PAUSAR</button>
+</div>
+
+<button id="hit">+1 CANTO</button>
+
+<p>Média por minuto: <b id="avg">0,0</b></p>
+
+<table>
+<thead>
+<tr>
+<th>Minuto</th>
+<th>Cantos</th>
+<th>Acumulado</th>
+</tr>
+</thead>
+<tbody id="rows"></tbody>
+</table>
+
+<button class="wide" id="finish">
+Encerrar e gerar relatório
+</button>
+
+<button class="wide" id="reset">
+Nova marcação
+</button>
+
+</main>
+
+<section id="report" hidden>
+
+<h2>RELATÓRIO DE CANTOS</h2>
+<small id="date"></small>
+
+<p>AVE</p>
+<h2 id="rb"></h2>
+
+<p>PROPRIETÁRIO</p>
+<h2 id="ro"></h2>
+
+<hr>
+<p id="rm"></p>
+<strong id="result"></strong>
+<p>CANTOS</p>
+<hr>
+
+<p>MÉDIA POR MINUTO</p>
+<strong id="ra"></strong>
+<p id="status"></p>
+
+<table>
+<thead>
+<tr>
+<th>Minuto</th>
+<th>Cantos</th>
+<th>Acumulado</th>
+</tr>
+</thead>
+<tbody id="reportRows"></tbody>
+</table>
+
+<button class="wide" id="back">
+Nova marcação
+</button>
+
+</section>
+
+<div class="version">BELNEX SOLUÇÕES • V34</div>
+
+<script>
+
+const $ = x => document.getElementById(x);
+
+const API =
+'https://ttlbtjaeifhgkbbggfzx.supabase.co/rest/v1/rpc/ativar_licenca';
+
+const KEY =
+'sb_publishable_dwxWxjQKzSrJHCXpyCUQlg_djLNFvYa';
+
+let authorized = false;
+
+function deviceId(){
+  let id = localStorage.getItem('belnex_device');
+
+  if(!id){
+    id = crypto.randomUUID();
+    localStorage.setItem('belnex_device',id);
+  }
+
+  return id;
+}
+
+function unlock(){
+  authorized = true;
+  $('license').hidden = true;
+  $('main').hidden = false;
+  render();
+}
+
+function lock(message){
+  authorized = false;
+  $('main').hidden = true;
+  $('report').hidden = true;
+  $('license').hidden = false;
+  $('message').textContent = message || '';
+}
+
+async function validate(code){
+
+  const response = await fetch(API,{
+    method:'POST',
+    headers:{
+      'apikey':KEY,
+      'Content-Type':'application/json'
+    },
+    body:JSON.stringify({
+      p_codigo:code,
+      p_dispositivo:deviceId()
+    })
+  });
+
+  if(!response.ok){
+    throw new Error('Falha na comunicação');
+  }
+
+  return (await response.json()) === true;
+}
+
+$('activate').onclick = async () => {
+
+  const code = $('code').value.trim().toLowerCase();
+
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(code)){
+    $('message').textContent = 'Código inválido.';
+    return;
+  }
+
+  if(!navigator.onLine){
+    $('message').textContent = 'Conecte-se à internet.';
+    return;
+  }
+
+  $('activate').disabled = true;
+  $('message').textContent = 'Verificando licença...';
+
+  try{
+
+    if(await validate(code)){
+
+      localStorage.setItem('belnex_license',code);
+      localStorage.setItem('belnex_activated',deviceId());
+
+      unlock();
+
+    }else{
+
+      lock('Licença inválida, bloqueada ou utilizada em outro dispositivo.');
+
+    }
+
+  }catch(error){
+
+    $('message').textContent =
+    'Não foi possível conectar. Tente novamente.';
+
+  }finally{
+
+    $('activate').disabled = false;
+
+  }
+};
+
+async function checkLicense(){
+
+  try{
+
+    const code = localStorage.getItem('belnex_license');
+    const activated = localStorage.getItem('belnex_activated');
+
+    if(!code || activated !== deviceId()){
+      lock();
+      return;
+    }
+
+    if(!navigator.onLine){
+      unlock();
+      return;
+    }
+
+    try{
+
+      if(await validate(code)){
+        unlock();
+      }else{
+        localStorage.removeItem('belnex_license');
+        localStorage.removeItem('belnex_activated');
+        lock('Licença não autorizada.');
+      }
+
+    }catch(error){
+      unlock();
+    }
+
+  }catch(error){
+    lock('Não foi possível acessar o armazenamento do aparelho.');
+  }
+}
+
+let mode=0;
+let base=0;
+let since=0;
+let running=false;
+let begun=false;
+let done=false;
+let events=[];
+
+const elapsed=()=>Math.min(
+  mode*60000,
+  base+(running?Math.max(0,Date.now()-since):0)
+);
+
+const fmt=s=>
+String(Math.floor(s/60)).padStart(2,'0')+
+':'+String(s%60).padStart(2,'0');
+
+const avg=()=>elapsed()?
+(events.length*60000/elapsed())
+.toFixed(1).replace('.',','):'0,0';
+
+const modes=[
+...document.querySelectorAll('[data-mode]')
+];
+
+function minuteRows(){
+
+  return Array.from({length:mode},(_,i)=>
+  `<tr>
+  <td>${i+1}</td>
+  <td>${events.filter(t=>Math.floor(t/60000)===i).length}</td>
+  <td>${events.filter(t=>t<(i+1)*60000).length}</td>
+  </tr>`).join('');
+
+}
+
+function render(){
+
+  $('clock').textContent=
+  new Date().toLocaleString('pt-BR');
+
+  if(!authorized)return;
+
+  let e=elapsed();
+
+  $('time').textContent=mode?
+  fmt(Math.ceil((mode*60000-e)/1000)):'--:--';
+
+  $('total').textContent=events.length;
+  $('avg').textContent=avg();
+
+  modes.forEach(b=>{
+    b.disabled=begun;
+    b.classList.toggle('active',+b.dataset.mode===mode);
+  });
+
+  $('start').disabled=!mode||running||done;
+  $('start').textContent=begun?'RETOMAR':'INICIAR';
+  $('pause').disabled=!running;
+  $('hit').disabled=!running||done||e>=mode*60000;
+  $('finish').disabled=!begun||done;
+  $('rows').innerHTML=minuteRows();
+
+  if(begun&&!done&&e>=mode*60000){
+    report();
+  }
+}
+
+function stop(){
+  base=elapsed();
+  running=false;
+}
+
+function report(){
+
+  if(!authorized||done||!begun)return;
+
+  stop();
+  done=true;
+
+  $('main').hidden=true;
+  $('report').hidden=false;
+
+  $('date').textContent=
+  new Date().toLocaleString('pt-BR');
+
+  $('rb').textContent=
+  $('bird').value.trim()||'NÃO INFORMADA';
+
+  $('ro').textContent=
+  $('owner').value.trim()||'NÃO INFORMADO';
+
+  $('rm').textContent=
+  'MODALIDADE '+mode+' MINUTOS';
+
+  $('result').textContent=events.length;
+  $('ra').textContent=avg();
+
+  $('status').textContent=
+  (base<mode*60000?
+  'RELATÓRIO PARCIAL':
+  'MARCAÇÃO CONCLUÍDA')+
+  ' — '+fmt(Math.floor(base/1000));
+
+  $('reportRows').innerHTML=minuteRows();
+
+}
+
+function reset(){
+
+  if(!authorized)return;
+
+  mode=base=0;
+  running=begun=done=false;
+  events=[];
+
+  $('bird').value='';
+  $('owner').value='';
+
+  $('main').hidden=false;
+  $('report').hidden=true;
+
+  render();
+
+}
+
+modes.forEach(b=>b.onclick=()=>{
+  if(authorized&&!begun){
+    mode=+b.dataset.mode;
+    render();
+  }
+});
+
+['bird','owner'].forEach(k=>
+$(k).oninput=()=>
+$(k).value=$(k).value.toLocaleUpperCase('pt-BR')
+);
+
+$('start').onclick=()=>{
+
+  if(authorized&&mode&&!running&&!done){
+    since=Date.now();
+    running=begun=true;
+    render();
+  }
+
+};
+
+$('pause').onclick=()=>{
+  stop();
+  render();
+};
+
+$('hit').onclick=()=>{
+
+  let e=elapsed();
+
+  if(authorized&&running&&e<mode*60000){
+    events.push(e);
+    render();
+  }
+
+};
+
+$('finish').onclick=report;
+
+$('reset').onclick=()=>{
+  if(!begun||confirm('Apagar a marcação atual?')){
+    reset();
+  }
+};
+
+$('back').onclick=reset;
+
+setInterval(render,200);
+
+render();
+checkLicense();
+
+if('serviceWorker'in navigator){
+  navigator.serviceWorker.register('./sw.js')
+  .catch(console.error);
+}
+
+</script>
+</body>
+</html>
+
